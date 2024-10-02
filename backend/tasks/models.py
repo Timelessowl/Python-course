@@ -1,6 +1,8 @@
-from django.db import models
+from django.db import models, connections
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 from django_celery_beat.models import PeriodicTask, CrontabSchedule
+from django_cryptography.fields import encrypt
 import json
 
 
@@ -13,6 +15,9 @@ class Task(models.Model):
     schedule = models.CharField(max_length=100)  # Cron expression
     is_active = models.BooleanField(default=True)
     last_run = models.DateTimeField(null=True, blank=True)
+    database_connection = models.ForeignKey(
+        'DatabaseConnection', on_delete=models.CASCADE, related_name='tasks'
+    )
     periodic_task = models.ForeignKey(
         PeriodicTask,
         on_delete=models.SET_NULL,
@@ -94,3 +99,47 @@ class ExecutionHistory(models.Model):
             f'{self.task.name} - '
             f'{self.execution_time.strftime("%Y-%m-%d %H:%M:%S")}'
         )
+
+
+class DatabaseConnection(models.Model):
+    """
+    Model to store external database connection details.
+    """
+    name = models.CharField(max_length=255)
+    host = models.CharField(max_length=255)
+    port = models.PositiveIntegerField(default=5432)
+    database_name = models.CharField(max_length=255)
+    username = models.CharField(max_length=255)
+    password = encrypt(models.CharField(max_length=255))  # Encrypted field
+
+    def clean(self):
+        """
+        Validate the database connection.
+        """
+        db_settings = {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': self.database_name,
+            'USER': self.username,
+            'PASSWORD': self.password,
+            'HOST': self.host,
+            'PORT': self.port,
+        }
+        db_alias = 'test_connection'
+
+        # Temporarily add the connection
+        connections.databases[db_alias] = db_settings
+
+        try:
+            # Try to connect
+            conn = connections[db_alias]
+            conn.ensure_connection()
+        except Exception as e:
+            raise ValidationError(f'Unable to connect to the database: {e}')
+        finally:
+            # Remove the test connection
+            del connections.databases[db_alias]
+
+    def save(self, *args, **kwargs):
+        # Validate before saving
+        self.clean()
+        super(DatabaseConnection, self).save(*args, **kwargs)
