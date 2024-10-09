@@ -39,9 +39,6 @@ class TaskSerializer(serializers.ModelSerializer):
 
 
 class ExecutionHistorySerializer(serializers.ModelSerializer):
-    """
-    Serializer for the ExecutionHistory model.
-    """
     task_name = serializers.CharField(source='task.name', read_only=True)
 
     class Meta:

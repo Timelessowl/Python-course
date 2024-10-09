@@ -1,9 +1,8 @@
 from django.db import models, connections
-from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django_celery_beat.models import PeriodicTask, CrontabSchedule
-from django_cryptography.fields import encrypt
 import json
+from datetime import datetime
 
 
 class Task(models.Model):
@@ -89,7 +88,7 @@ class ExecutionHistory(models.Model):
     task = models.ForeignKey(
         Task, on_delete=models.CASCADE, related_name='executions'
     )
-    execution_time = models.DateTimeField(default=timezone.now)
+    execution_time = models.DateTimeField(default=datetime.now)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     result = models.TextField(null=True, blank=True)
     error_message = models.TextField(null=True, blank=True)
@@ -110,11 +109,14 @@ class DatabaseConnection(models.Model):
     port = models.PositiveIntegerField(default=5432)
     database_name = models.CharField(max_length=255)
     username = models.CharField(max_length=255)
-    password = encrypt(models.CharField(max_length=255))  # Encrypted field
+    password = models.CharField(max_length=128)  # Note: Storing passwords in plain text is insecure.
+
+    def __str__(self):
+        return self.name
 
     def clean(self):
         """
-        Validate the database connection.
+        Validate the database connection by attempting to connect.
         """
         db_settings = {
             'ENGINE': 'django.db.backends.postgresql',
@@ -130,16 +132,13 @@ class DatabaseConnection(models.Model):
         connections.databases[db_alias] = db_settings
 
         try:
-            # Try to connect
+            # Attempt to establish a connection
             conn = connections[db_alias]
             conn.ensure_connection()
         except Exception as e:
+            # Log the exact error for debugging
+            print(f"Connection error: {e}")  # For debugging purposes
             raise ValidationError(f'Unable to connect to the database: {e}')
         finally:
-            # Remove the test connection
+            # Remove the temporary connection
             del connections.databases[db_alias]
-
-    def save(self, *args, **kwargs):
-        # Validate before saving
-        self.clean()
-        super(DatabaseConnection, self).save(*args, **kwargs)

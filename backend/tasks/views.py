@@ -1,8 +1,8 @@
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Task, ExecutionHistory
-from .serializers import TaskSerializer, ExecutionHistorySerializer
+from .models import Task, ExecutionHistory, DatabaseConnection
+from .serializers import TaskSerializer, ExecutionHistorySerializer, DatabaseConnectionSerializer
 from .tasks import execute_task
 
 
@@ -40,3 +40,10 @@ class ExecutionHistoryViewSet(viewsets.ReadOnlyModelViewSet):
         if task_id is not None:
             queryset = queryset.filter(task__id=task_id)
         return queryset
+
+class DatabaseConnectionViewSet(viewsets.ModelViewSet):
+    """
+    A ViewSet for viewing and editing DatabaseConnection instances.
+    """
+    queryset = DatabaseConnection.objects.all()
+    serializer_class = DatabaseConnectionSerializer
