@@ -1,49 +1,44 @@
-from rest_framework import viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Task, ExecutionHistory, DatabaseConnection
-from .serializers import TaskSerializer, ExecutionHistorySerializer, DatabaseConnectionSerializer
-from .tasks import execute_task
+from rest_framework import status, generics
+from .models import Task, ExecutionHistory
+from .serializers import TaskSerializer, ExecutionHistorySerializer
+import psycopg2
 
+@api_view(['POST'])
+def check_connection(request):
+    try:
+        data = request.data
 
-class TaskViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for managing tasks.
-    """
+        database_name = data.get('database_name')
+        username = data.get('username')
+        password = data.get('password')
+        host = data.get('host')
+        port = data.get('port')
+
+        if not all([database_name, username, password, host, port]):
+            return Response(
+                {'is_connection_successful': False, 'error': 'Missing connection parameters.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Attempt to connect to the PostgreSQL database
+        connection = psycopg2.connect(
+            dbname=database_name,
+            user=username,
+            password=password,
+            host=host,
+            port=port
+        )
+        connection.close()
+        return Response({'is_connection_successful': True}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'is_connection_successful': False, 'error': str(e)}, status=status.HTTP_200_OK)
+
+class TaskCreateView(generics.CreateAPIView):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
 
-    @action(detail=True, methods=['post'])
-    def run(self, request, pk=None):
-        """
-        Custom action to manually run a task.
-        """
-        task = self.get_object()
-        execute_task.delay(task.id)
-        return Response({'status': 'Task execution started'})
-
-
-class ExecutionHistoryViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    ViewSet for viewing execution history.
-    """
-    queryset = ExecutionHistory.objects.all().order_by('-execution_time')
-    serializer_class = ExecutionHistorySerializer
-
-    def get_queryset(self):
-        """
-        Optionally restricts the returned executions to a given task,
-        by filtering against a `task_id` query parameter in the URL.
-        """
-        queryset = super().get_queryset()
-        task_id = self.request.query_params.get('task_id')
-        if task_id is not None:
-            queryset = queryset.filter(task__id=task_id)
-        return queryset
-
-class DatabaseConnectionViewSet(viewsets.ModelViewSet):
-    """
-    A ViewSet for viewing and editing DatabaseConnection instances.
-    """
-    queryset = DatabaseConnection.objects.all()
-    serializer_class = DatabaseConnectionSerializer
+class TaskListView(generics.ListAPIView):
+    queryset = Task.objects.all()
+    serializer_class = TaskSerializer

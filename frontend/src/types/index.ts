@@ -1,24 +1,54 @@
-export interface Task {
-  id: number;
-  name: string;
-  is_active: boolean;
-  schedule: string;
-}
+// src/types/index.ts
 
-export interface ExecutionHistoryEntry {
-  id: number;
-  task: number;
-  execution_time: string;
-  status: string;
-  result: string;
-  error_message: string;
-}
+// ------------------------
+// Database Connection Types
+// ------------------------
 
-export interface DatabaseConnection {
-  id: number;
+export type DatabaseConnectionInput = {
   name: string;
   host: string;
   port: number;
   database_name: string;
   username: string;
-}
+  password: string;
+};
+
+export type DatabaseConnection = {
+  name: string;
+  host: string;
+  port: number;
+  database_name: string;
+  username: string;
+
+};
+
+export type TaskInput = {
+  name: string;
+  query: string;
+  schedule: string;
+  database_connection: DatabaseConnection;
+};
+
+export type Task = {
+  id: number;
+  name: string;
+  query: string;
+  schedule: string;
+  is_active: boolean;
+  last_run: string | null;
+  database_connection: DatabaseConnection;
+};
+
+export type ExecutionHistoryEntry = {
+  id: number;
+  task: string;
+  execution_time: string;
+  status: string;
+  result: string;
+  error_message: string;
+};
+
+export type CheckConnectionResponse = {
+  is_connection_successful: boolean;
+  error?: string;
+};

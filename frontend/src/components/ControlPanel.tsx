@@ -1,13 +1,9 @@
 import React from 'react';
-import { Typography, Box } from '@mui/material';
+import TaskList from './TaskList';
 
 const ControlPanel: React.FC = () => {
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Control Panel
-      </Typography>
-    </Box>
+    <TaskList/>
   );
 };
 

@@ -1,9 +1,9 @@
 import React from 'react';
 
-interface SelectorProps {
+type SelectorProps = {
   selectedOption: string;
   onOptionSelect: (option: string) => void;
-}
+};
 
 const Selector: React.FC<SelectorProps> = ({ selectedOption, onOptionSelect }) => {
   const options = ['Control Panel', 'Add New', 'History'];

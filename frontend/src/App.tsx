@@ -1,22 +1,16 @@
-// src/App.tsx
-
 import React, { useState } from 'react';
 import Selector from './components/Selector';
 import TaskAndConnectionForm from './components/TaskAndConnectionForm';
 import ControlPanel from './components/ControlPanel';
 import History from './components/History';
-import './App.css'; // Optional: For component-specific styles
-
+import 'bootstrap/dist/css/bootstrap.min.css';
 const App: React.FC = () => {
-  // State to track the selected option
   const [selectedOption, setSelectedOption] = useState<string>('Add New');
 
-  // Handler for selector option clicks
   const handleOptionSelect = (option: string) => {
     setSelectedOption(option);
   };
 
-  // Function to render content based on the selected option
   const renderContent = () => {
     switch (selectedOption) {
       case 'Control Panel':
@@ -39,10 +33,8 @@ const App: React.FC = () => {
         height: '100vh',
       }}
     >
-      {/* Selector Component */}
       <Selector selectedOption={selectedOption} onOptionSelect={handleOptionSelect} />
 
-      {/* Main Content Area */}
       <div
         className="main-content-rectangle"
         style={{

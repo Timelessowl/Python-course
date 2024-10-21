@@ -1,12 +1,8 @@
-from django.urls import include, path
-from rest_framework import routers
-from .views import TaskViewSet, DatabaseConnectionViewSet, ExecutionHistoryViewSet
-
-router = routers.DefaultRouter()
-router.register(r'tasks', TaskViewSet)
-router.register(r'database-connections', DatabaseConnectionViewSet)
-router.register(r'execution-histories', ExecutionHistoryViewSet)
+from django.urls import path
+from .views import check_connection, TaskCreateView, TaskListView
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path('check-connection/', check_connection, name='check_connection'),
+    path('tasks/', TaskListView.as_view(), name='task_list'),
+    path('tasks/create/', TaskCreateView.as_view(), name='create_task'),
 ]

@@ -1,54 +1,65 @@
-// src/components/TaskAndConnectionForm.tsx
-
 import React, { useState } from 'react';
-import api from '../api/api';
 import {
   Container,
-  TextField,
+  Form,
+  FormGroup,
+  Label,
+  Input,
   Button,
-  Typography,
   Alert,
-  Grid,
-} from '@mui/material';
-import { DatabaseConnection, Task } from '../types';
+  Row,
+  Col,
+} from 'reactstrap';
 import { useNavigate } from 'react-router-dom';
+import {
+  DatabaseConnectionInput,
+  TaskInput,
+  Task,
+} from '../types';
+import { createTask } from '../api/apiActions';
 
 const TaskAndConnectionForm: React.FC = () => {
   const navigate = useNavigate();
 
-  // State for Database Connection
   const [dbName, setDbName] = useState<string>('');
   const [dbHost, setDbHost] = useState<string>('');
   const [dbPort, setDbPort] = useState<number>(5432);
   const [dbDatabaseName, setDbDatabaseName] = useState<string>('');
   const [dbUsername, setDbUsername] = useState<string>('');
   const [dbPassword, setDbPassword] = useState<string>('');
-  const [connectionId, setConnectionId] = useState<number | null>(null);
 
-  // State for Task
   const [taskName, setTaskName] = useState<string>('');
   const [taskQuery, setTaskQuery] = useState<string>('');
   const [taskSchedule, setTaskSchedule] = useState<string>('');
 
-  // UI State
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
-  const [isConnectionFormOpen, setIsConnectionFormOpen] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Handler to check and create database connection
-  const handleCheckConnection = async (e: React.FormEvent) => {
+  const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setIsLoading(true);
 
-    // Basic validation
-    if (!dbName || !dbHost || !dbDatabaseName || !dbUsername || !dbPassword) {
-      setError('Please fill in all database connection fields.');
+    // проверка на пустые поля
+    if (
+      !dbName ||
+      !dbHost ||
+      !dbDatabaseName ||
+      !dbUsername ||
+      !dbPassword ||
+      !taskName ||
+      !taskQuery ||
+      !taskSchedule
+    ) {
+      setError('Please fill in all fields.');
+      setIsLoading(false);
       return;
     }
 
     try {
-      const newConnection = {
+      const databaseConnection: DatabaseConnectionInput = {
         name: dbName,
         host: dbHost,
         port: dbPort,
@@ -56,205 +67,178 @@ const TaskAndConnectionForm: React.FC = () => {
         username: dbUsername,
         password: dbPassword,
       };
-      const response = await api.post<DatabaseConnection>('database-connections/', newConnection);
-      setConnectionId(response.data.id);
-      setSuccess('Database connection checked and created successfully.');
-      // Reset connection form fields
+
+      const taskDetails: TaskInput = {
+        name: taskName,
+        query: taskQuery,
+        schedule: taskSchedule,
+        database_connection: databaseConnection,
+      };
+
+      const response: Task = await createTask(taskDetails);
+      setSuccess('Task created successfully.');
       setDbName('');
       setDbHost('');
       setDbPort(5432);
       setDbDatabaseName('');
       setDbUsername('');
       setDbPassword('');
-    } catch (error: any) {
-      console.error('Error checking database connection:', error);
-      setError(error.response?.data?.message || 'Failed to check database connection.');
-    }
-  };
-
-  // Handler to create task
-  const handleCreateTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    // Basic validation
-    if (!taskName || !taskQuery || !taskSchedule) {
-      setError('Please fill in all task fields.');
-      return;
-    }
-
-    if (connectionId === null) {
-      setError('Please check and create a database connection first.');
-      return;
-    }
-
-    try {
-      const newTask = {
-        name: taskName,
-        query: taskQuery,
-        schedule: taskSchedule,
-        database_connection: connectionId,
-      };
-      await api.post<Task>('tasks/', newTask);
-      setSuccess('Task created successfully.');
-      // Reset task form fields
       setTaskName('');
       setTaskQuery('');
       setTaskSchedule('');
-      // Navigate to tasks list
       navigate('/tasks');
-    } catch (error: any) {
-      console.error('Error creating task:', error);
-      setError(error.response?.data?.message || 'Failed to create task.');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to create task.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <Container maxWidth="md">
-      <Typography variant="h4" gutterBottom>
-        New Task
-      </Typography>
+    <Container>
+      <h4 className="my-4">New Task</h4>
 
       {error && (
-        <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>
+        <Alert color="danger" toggle={() => setError('')} className="mb-3">
           {error}
         </Alert>
       )}
       {success && (
-        <Alert severity="success" onClose={() => setSuccess('')} sx={{ mb: 2 }}>
+        <Alert color="success" toggle={() => setSuccess('')} className="mb-3">
           {success}
         </Alert>
       )}
 
-      <Grid container spacing={4}>
-        {/* Database Connection Section */}
-        <Grid item xs={12}>
-          <Typography variant="h5" gutterBottom>
-            Database Connection
-          </Typography>
-          <form onSubmit={handleCheckConnection}>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField
-                  label="Connection Name"
-                  variant="outlined"
-                  fullWidth
-                  value={dbName}
-                  onChange={(e) => setDbName(e.target.value)}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Host"
-                  variant="outlined"
-                  fullWidth
-                  value={dbHost}
-                  onChange={(e) => setDbHost(e.target.value)}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Port"
-                  variant="outlined"
-                  fullWidth
-                  type="number"
-                  value={dbPort}
-                  onChange={(e) => setDbPort(Number(e.target.value))}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Database Name"
-                  variant="outlined"
-                  fullWidth
-                  value={dbDatabaseName}
-                  onChange={(e) => setDbDatabaseName(e.target.value)}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Username"
-                  variant="outlined"
-                  fullWidth
-                  value={dbUsername}
-                  onChange={(e) => setDbUsername(e.target.value)}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Password"
-                  variant="outlined"
-                  fullWidth
-                  type="password"
-                  value={dbPassword}
-                  onChange={(e) => setDbPassword(e.target.value)}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Button type="submit" variant="contained" color="secondary">
-                  Check Database Connection
-                </Button>
-              </Grid>
-            </Grid>
-          </form>
-        </Grid>
+      <Form onSubmit={handleCreateTask}>
+        <Row form>
+          <Col xs={12}>
+            <h5 className="mb-3">Database Connection</h5>
+            <Row form>
+              <Col xs={12}>
+                <FormGroup>
+                  <Label for="dbName">Connection Name</Label>
+                  <Input
+                    type="text"
+                    id="dbName"
+                    value={dbName}
+                    onChange={(e) => setDbName(e.target.value)}
+                    required
+                  />
+                </FormGroup>
+              </Col>
+              <Col xs={12} md={6}>
+                <FormGroup>
+                  <Label for="dbHost">Host</Label>
+                  <Input
+                    type="text"
+                    id="dbHost"
+                    value={dbHost}
+                    onChange={(e) => setDbHost(e.target.value)}
+                    required
+                  />
+                </FormGroup>
+              </Col>
+              <Col xs={12} md={6}>
+                <FormGroup>
+                  <Label for="dbPort">Port</Label>
+                  <Input
+                    type="number"
+                    id="dbPort"
+                    value={dbPort}
+                    onChange={(e) => setDbPort(Number(e.target.value))}
+                    required
+                  />
+                </FormGroup>
+              </Col>
+              <Col xs={12}>
+                <FormGroup>
+                  <Label for="dbDatabaseName">Database Name</Label>
+                  <Input
+                    type="text"
+                    id="dbDatabaseName"
+                    value={dbDatabaseName}
+                    onChange={(e) => setDbDatabaseName(e.target.value)}
+                    required
+                  />
+                </FormGroup>
+              </Col>
+              <Col xs={12} md={6}>
+                <FormGroup>
+                  <Label for="dbUsername">Username</Label>
+                  <Input
+                    type="text"
+                    id="dbUsername"
+                    value={dbUsername}
+                    onChange={(e) => setDbUsername(e.target.value)}
+                    required
+                  />
+                </FormGroup>
+              </Col>
+              <Col xs={12} md={6}>
+                <FormGroup>
+                  <Label for="dbPassword">Password</Label>
+                  <Input
+                    type="password"
+                    id="dbPassword"
+                    value={dbPassword}
+                    onChange={(e) => setDbPassword(e.target.value)}
+                    required
+                  />
+                </FormGroup>
+              </Col>
+            </Row>
+          </Col>
 
-        {/* Task Details Section */}
-        <Grid item xs={12}>
-          <Typography variant="h5" gutterBottom>
-            Task Details
-          </Typography>
-          <form onSubmit={handleCreateTask}>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField
-                  label="Task Name"
-                  variant="outlined"
-                  fullWidth
-                  value={taskName}
-                  onChange={(e) => setTaskName(e.target.value)}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="SQL Query"
-                  variant="outlined"
-                  fullWidth
-                  multiline
-                  minRows={4}
-                  value={taskQuery}
-                  onChange={(e) => setTaskQuery(e.target.value)}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Cron Schedule"
-                  variant="outlined"
-                  fullWidth
-                  placeholder="e.g., */5 * * * *"
-                  value={taskSchedule}
-                  onChange={(e) => setTaskSchedule(e.target.value)}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Button type="submit" variant="contained" color="primary">
-                  Create Task
+          <Col xs={12} className="mt-5">
+            <h5 className="mb-3">Task Details</h5>
+            <Row form>
+              <Col xs={12}>
+                <FormGroup>
+                  <Label for="taskName">Task Name</Label>
+                  <Input
+                    type="text"
+                    id="taskName"
+                    value={taskName}
+                    onChange={(e) => setTaskName(e.target.value)}
+                    required
+                  />
+                </FormGroup>
+              </Col>
+              <Col xs={12}>
+                <FormGroup>
+                  <Label for="taskQuery">SQL Query</Label>
+                  <Input
+                    type="textarea"
+                    id="taskQuery"
+                    value={taskQuery}
+                    onChange={(e) => setTaskQuery(e.target.value)}
+                    required
+                    rows={4}
+                  />
+                </FormGroup>
+              </Col>
+              <Col xs={12}>
+                <FormGroup>
+                  <Label for="taskSchedule">Cron Schedule</Label>
+                  <Input
+                    type="text"
+                    id="taskSchedule"
+                    placeholder="e.g., */5 * * * *"
+                    value={taskSchedule}
+                    onChange={(e) => setTaskSchedule(e.target.value)}
+                    required
+                  />
+                </FormGroup>
+              </Col>
+              <Col xs={12}>
+                <Button type="submit" color="primary" disabled={isLoading}>
+                  {isLoading ? 'Creating...' : 'Create Task'}
                 </Button>
-              </Grid>
-            </Grid>
-          </form>
-        </Grid>
-      </Grid>
+              </Col>
+            </Row>
+          </Col>
+        </Row>
+      </Form>
     </Container>
   );
 };

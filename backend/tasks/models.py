@@ -109,36 +109,7 @@ class DatabaseConnection(models.Model):
     port = models.PositiveIntegerField(default=5432)
     database_name = models.CharField(max_length=255)
     username = models.CharField(max_length=255)
-    password = models.CharField(max_length=128)  # Note: Storing passwords in plain text is insecure.
+    password = models.CharField(max_length=128)
 
     def __str__(self):
         return self.name
-
-    def clean(self):
-        """
-        Validate the database connection by attempting to connect.
-        """
-        db_settings = {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': self.database_name,
-            'USER': self.username,
-            'PASSWORD': self.password,
-            'HOST': self.host,
-            'PORT': self.port,
-        }
-        db_alias = 'test_connection'
-
-        # Temporarily add the connection
-        connections.databases[db_alias] = db_settings
-
-        try:
-            # Attempt to establish a connection
-            conn = connections[db_alias]
-            conn.ensure_connection()
-        except Exception as e:
-            # Log the exact error for debugging
-            print(f"Connection error: {e}")  # For debugging purposes
-            raise ValidationError(f'Unable to connect to the database: {e}')
-        finally:
-            # Remove the temporary connection
-            del connections.databases[db_alias]
