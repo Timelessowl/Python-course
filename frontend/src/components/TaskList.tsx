@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Container,
   Alert,
   Spinner,
   Card,
@@ -11,7 +10,12 @@ import {
 import { Task } from '../types';
 import { fetchTasks } from '../api/apiActions';
 
-const TaskList: React.FC = () => {
+interface TaskListProps {
+  onSelectTask: (task: Task | null) => void;
+  selectedTaskId: number | null;
+}
+
+const TaskList: React.FC<TaskListProps> = ({ onSelectTask, selectedTaskId }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -34,12 +38,14 @@ const TaskList: React.FC = () => {
   }, []);
 
   const toggleTask = (taskId: number) => {
-    setActiveTaskId(activeTaskId === taskId ? null : taskId);
+    const newActiveTaskId = activeTaskId === taskId ? null : taskId;
+    setActiveTaskId(newActiveTaskId);
+    const selectedTask = tasks.find(task => task.id === newActiveTaskId) || null;
+    onSelectTask(selectedTask);
   };
 
   return (
-    <Container className="my-4">
-      <h4>Task List</h4>
+    <div>
       {error && (
         <Alert color="danger" toggle={() => setError('')} className="mb-3">
           {error}
@@ -54,7 +60,13 @@ const TaskList: React.FC = () => {
         <div>
           {tasks.map((task) => (
             <Card key={task.id} className="mb-2">
-              <CardHeader onClick={() => toggleTask(task.id)} style={{ cursor: 'pointer' }}>
+              <CardHeader
+                onClick={() => toggleTask(task.id)}
+                style={{
+                  cursor: 'pointer',
+                  backgroundColor: selectedTaskId === task.id ? '#e9ecef' : '',
+                }}
+              >
                 <strong>
                   ID: {task.id} - {task.name}
                 </strong>
@@ -80,7 +92,7 @@ const TaskList: React.FC = () => {
           ))}
         </div>
       )}
-    </Container>
+    </div>
   );
 };
 

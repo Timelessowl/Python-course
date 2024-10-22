@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Task, DatabaseConnection, ExecutionHistory
+from .models import Task, DatabaseConnection, ExecutionHistory, QueryResult, QueryResultConfig
 
 class DatabaseConnectionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -40,3 +40,14 @@ class ExecutionHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = ExecutionHistory
         fields = ['id', 'task_name', 'execution_time', 'status', 'result', 'error_message']
+
+
+class QueryResultSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QueryResult
+        fields = ['id', 'task', 'execution_time', 'status', 'result_data', 'error_message']
+
+class QueryResultConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QueryResultConfig
+        fields = ['id', 'table_name']

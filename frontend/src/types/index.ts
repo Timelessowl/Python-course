@@ -1,9 +1,3 @@
-// src/types/index.ts
-
-// ------------------------
-// Database Connection Types
-// ------------------------
-
 export type DatabaseConnectionInput = {
   name: string;
   host: string;
@@ -14,19 +8,19 @@ export type DatabaseConnectionInput = {
 };
 
 export type DatabaseConnection = {
+  id: number;
   name: string;
   host: string;
   port: number;
   database_name: string;
   username: string;
-
 };
 
 export type TaskInput = {
   name: string;
   query: string;
   schedule: string;
-  database_connection: DatabaseConnection;
+  database_connection: DatabaseConnectionInput;
 };
 
 export type Task = {
@@ -39,13 +33,27 @@ export type Task = {
   database_connection: DatabaseConnection;
 };
 
+export type QueryResult = {
+  id: number;
+  task: number;
+  execution_time: string;
+  status: string;
+  result_data: any; // JSON data
+  error_message: string | null;
+};
+
 export type ExecutionHistoryEntry = {
   id: number;
-  task: string;
+  task_name: string;
   execution_time: string;
   status: string;
   result: string;
   error_message: string;
+};
+
+export type QueryResultConfig = {
+  id: number;
+  table_name: string;
 };
 
 export type CheckConnectionResponse = {

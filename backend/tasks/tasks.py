@@ -1,73 +1,93 @@
 from celery import shared_task
-from django.utils import timezone
-from .models import Task, ExecutionHistory
-from django.db import connections
+from .models import Task, ExecutionHistory, QueryResultConfig
+from django.conf import settings
+import psycopg2
+import json
 
-
-@shared_task(bind=True, max_retries=3)
-def execute_task(self, task_id):
+@shared_task
+def execute_task(task_id):
     """
-    Celery task to execute the SQL query of a given Task
-    on the specified database.
+    Executes a specific task:
+    1. Runs the task's SQL query on the source database.
+    2. Stores the results in the target database.
+    3. Records the execution history.
     """
     try:
-        task = Task.objects.select_related(
-            'database_connection'
-        ).get(id=task_id)
-        db_conn = task.database_connection
+        task = Task.objects.select_related('database_connection', 'result_database').get(id=task_id)
 
-        # Create a new database connection dynamically
-        db_settings = {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': db_conn.database_name,
-            'USER': db_conn.username,
-            'PASSWORD': db_conn.password,
-            'HOST': db_conn.host,
-            'PORT': db_conn.port,
+        source_db = task.database_connection
+        source_conn = psycopg2.connect(
+            dbname=source_db.database_name,
+            user=source_db.username,
+            password=source_db.password,
+            host=source_db.host,
+            port=source_db.port
+        )
+        source_cursor = source_conn.cursor()
+        source_cursor.execute(task.query)
+        results = source_cursor.fetchall()
+        columns = [desc[0] for desc in source_cursor.description]
+        source_cursor.close()
+        source_conn.close()
+
+        result_data = {
+            'columns': columns,
+            'rows': results
         }
 
-        # Create a unique alias for the database connection
-        db_alias = f'task_{task_id}_connection'
+        config, created = QueryResultConfig.objects.get_or_create(
+            id=1,
+            defaults={'table_name': 'query_results'}
+        )
+        table_name = config.table_name
 
-        # Add the database connection to Django's connections
-        connections.databases[db_alias] = db_settings
+        target_db = settings.DATABASES['default']
+        target_conn = psycopg2.connect(
+            dbname=target_db['NAME'],
+            user=target_db['USER'],
+            password=target_db['PASSWORD'],
+            host=target_db['HOST'],
+            port=target_db['PORT']
+        )
+        target_cursor = target_conn.cursor()
 
-        query = task.query.strip()
-        # Simple validation to allow only SELECT queries
-        if not query.lower().startswith('select'):
-            raise ValueError('Only SELECT queries are allowed.')
+        create_table_query = f"""
+            CREATE TABLE IF NOT EXISTS {table_name} (
+                id SERIAL PRIMARY KEY,
+                task_id INTEGER REFERENCES tasks_task(id),
+                execution_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                status VARCHAR(50),
+                result_data JSONB,
+                error_message TEXT
+            );
+        """
+        target_cursor.execute(create_table_query)
+        target_conn.commit()
 
-        with connections[db_alias].cursor() as cursor:
-            cursor.execute(query)
-            if cursor.description:
-                columns = [col[0] for col in cursor.description]
-                result = [
-                    dict(zip(columns, row))
-                    for row in cursor.fetchall()
-                ]
-            else:
-                result = []
+        insert_result_query = f"""
+            INSERT INTO {table_name} (task_id, status, result_data)
+            VALUES (%s, %s, %s);
+        """
+        target_cursor.execute(insert_result_query, (task.id, 'SUCCESS', json.dumps(result_data)))
+        target_conn.commit()
+        target_cursor.close()
+        target_conn.close()
 
-        # Remove the dynamic database connection
-        del connections.databases[db_alias]
-
-        # Save execution history
         ExecutionHistory.objects.create(
             task=task,
             status='SUCCESS',
-            result=str(result),
+            result_data=result_data
         )
 
-        # Update task's last_run
-        task.last_run = timezone.now()
-        task.save(update_fields=['last_run'])
-
-    except Exception as e:
-        # Save execution history with error
+    except Task.DoesNotExist:
         ExecutionHistory.objects.create(
             task_id=task_id,
             status='FAILURE',
-            error_message=str(e),
+            error_message=f"Task with ID {task_id} does not exist."
         )
-        # Retry the task
-        self.retry(exc=e, countdown=60)
+    except Exception as e:
+        ExecutionHistory.objects.create(
+            task_id=task_id,
+            status='FAILURE',
+            error_message=str(e)
+        )

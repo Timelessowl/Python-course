@@ -16,8 +16,7 @@ import {
   TaskInput,
   Task,
 } from '../types';
-import { createTask } from '../api/apiActions';
-
+import { createTask, checkDatabaseConnection } from '../api/apiActions';
 const TaskAndConnectionForm: React.FC = () => {
   const navigate = useNavigate();
 
@@ -35,6 +34,10 @@ const TaskAndConnectionForm: React.FC = () => {
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const [connectionError, setConnectionError] = useState<string>('');
+  const [connectionSuccess, setConnectionSuccess] = useState<string>('');
+  const [isChecking, setIsChecking] = useState<boolean>(false);
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,9 +97,49 @@ const TaskAndConnectionForm: React.FC = () => {
     }
   };
 
+  const handleCheckConnection = async () => {
+    setConnectionError('');
+    setConnectionSuccess('');
+    setIsChecking(true);
+
+    if (
+      !dbName ||
+      !dbHost ||
+      !dbDatabaseName ||
+      !dbUsername ||
+      !dbPassword
+    ) {
+      setConnectionError('Please fill in all database connection fields.');
+      setIsChecking(false);
+      return;
+    }
+
+    try {
+      const databaseConnection: DatabaseConnectionInput = {
+        name: dbName,
+        host: dbHost,
+        port: dbPort,
+        database_name: dbDatabaseName,
+        username: dbUsername,
+        password: dbPassword,
+      };
+
+      const response = await checkDatabaseConnection(databaseConnection);
+      if (response.is_connection_successful) {
+        setConnectionSuccess('Connection successful!');
+      } else {
+        setConnectionError(response.error || 'Connection failed.');
+      }
+    } catch (err: any) {
+      setConnectionError(err.response?.data?.error || 'Connection failed.');
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
   return (
     <Container>
-      <h4 className="my-4">New Task</h4>
+      <h4 className="my-4">Создание нового задания</h4>
 
       {error && (
         <Alert color="danger" toggle={() => setError('')} className="mb-3">
@@ -187,6 +230,35 @@ const TaskAndConnectionForm: React.FC = () => {
                 </FormGroup>
               </Col>
             </Row>
+
+            {connectionError && (
+              <Alert
+                color="danger"
+                toggle={() => setConnectionError('')}
+                className="mt-3"
+              >
+                {connectionError}
+              </Alert>
+            )}
+            {connectionSuccess && (
+              <Alert
+                color="success"
+                toggle={() => setConnectionSuccess('')}
+                className="mt-3"
+              >
+                {connectionSuccess}
+              </Alert>
+            )}
+
+            <Button
+              type="button"
+              color="secondary"
+              onClick={handleCheckConnection}
+              disabled={isChecking}
+              className="mt-2"
+            >
+              {isChecking ? 'Checking...' : 'Check Connection'}
+            </Button>
           </Col>
 
           <Col xs={12} className="mt-5">

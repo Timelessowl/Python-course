@@ -113,3 +113,26 @@ class DatabaseConnection(models.Model):
 
     def __str__(self):
         return self.name
+    
+
+class QueryResult(models.Model):
+    """
+    Model to store the results of task queries.
+    """
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='results')
+    execution_time = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=50)  # e.g., "SUCCESS", "FAILURE"
+    result_data = models.JSONField()  # Stores query results
+    error_message = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f'Result for Task {self.task.id} at {self.execution_time}'
+
+class QueryResultConfig(models.Model):
+    """
+    Model to store configuration for query result storage.
+    """
+    table_name = models.CharField(max_length=255, unique=True)
+
+    def __str__(self):
+        return self.table_name
