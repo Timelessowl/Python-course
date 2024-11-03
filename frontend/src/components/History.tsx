@@ -1,23 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Table, Alert } from 'reactstrap';
-import { ExecutionHistoryEntry } from '../types';
-import api from '../api/api';
+import { ExecutionHistory } from '../types';
+import { fetchExecutionHistory } from '../api/apiActions';
 
 const History: React.FC = () => {
-  const [histories, setHistories] = useState<ExecutionHistoryEntry[]>([]);
+  const [histories, setHistories] = useState<ExecutionHistory[]>([]);
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
-    const fetchHistories = async () => {
+    const fetchData = async () => {
       try {
-        const response = await api.get<ExecutionHistoryEntry[]>('execution-histories/');
-        setHistories(response.data);
-      } catch (err: any) {
-        setError('Failed to load execution histories.');
+        const data = await fetchExecutionHistory();
+        setHistories(data);
+      } catch (err) {
+        setError('Failed to fetch execution history.');
       }
     };
-
-    fetchHistories();
+    fetchData();
   }, []);
 
   return (
@@ -40,11 +39,15 @@ const History: React.FC = () => {
         <tbody>
           {histories.map((history) => (
             <tr key={history.id}>
-              <td>{'tmp'}</td>
+              <td>{history.task.name}</td>
               <td>{new Date(history.execution_time).toLocaleString()}</td>
               <td>{history.status}</td>
               <td>
-                {history.status === 'SUCCESS' ? history.result : history.error_message}
+                {history.status === 'SUCCESS' ? (
+                  <pre>{JSON.stringify(history.result_data, null, 2)}</pre>
+                ) : (
+                  history.error_message
+                )}
               </td>
             </tr>
           ))}

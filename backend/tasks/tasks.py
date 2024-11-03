@@ -1,27 +1,30 @@
 from celery import shared_task
-from .models import Task, ExecutionHistory, QueryResultConfig
+from django.db import connection
 from django.conf import settings
+from .models import Task, ExecutionHistory
 import psycopg2
 import json
 
-@shared_task
-def execute_task(task_id):
+@shared_task(bind=True, max_retries=None)
+def execute_task(self, task_id):
     """
     Executes a specific task:
     1. Runs the task's SQL query on the source database.
-    2. Stores the results in the target database.
+    2. Inserts results into the specified table.
     3. Records the execution history.
     """
     try:
-        task = Task.objects.select_related('database_connection', 'result_database').get(id=task_id)
+        # Fetch the Task instance
+        task = Task.objects.select_related('database_connection').get(id=task_id)
 
-        source_db = task.database_connection
+        # Connect to the source database
+        db_conn = task.database_connection
         source_conn = psycopg2.connect(
-            dbname=source_db.database_name,
-            user=source_db.username,
-            password=source_db.password,
-            host=source_db.host,
-            port=source_db.port
+            dbname=db_conn.database_name,
+            user=db_conn.username,
+            password=db_conn.password,
+            host=db_conn.host,
+            port=db_conn.port
         )
         source_cursor = source_conn.cursor()
         source_cursor.execute(task.query)
@@ -35,43 +38,26 @@ def execute_task(task_id):
             'rows': results
         }
 
-        config, created = QueryResultConfig.objects.get_or_create(
-            id=1,
-            defaults={'table_name': 'query_results'}
-        )
-        table_name = config.table_name
+        # Таблица для хранения результатов
+        table_name = settings.RESULT_TABLE_NAME
 
-        target_db = settings.DATABASES['default']
-        target_conn = psycopg2.connect(
-            dbname=target_db['NAME'],
-            user=target_db['USER'],
-            password=target_db['PASSWORD'],
-            host=target_db['HOST'],
-            port=target_db['PORT']
-        )
-        target_cursor = target_conn.cursor()
+        with connection.cursor() as cursor:
+            # Create table if it doesn't exist
+            create_table_query = f'''
+                CREATE TABLE IF NOT EXISTS "{table_name}" (
+                    id SERIAL PRIMARY KEY,
+                    task_id INTEGER REFERENCES tasks_task(id),
+                    execution_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    result_data JSONB
+                );
+            '''
+            cursor.execute(create_table_query)
 
-        create_table_query = f"""
-            CREATE TABLE IF NOT EXISTS {table_name} (
-                id SERIAL PRIMARY KEY,
-                task_id INTEGER REFERENCES tasks_task(id),
-                execution_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                status VARCHAR(50),
-                result_data JSONB,
-                error_message TEXT
-            );
-        """
-        target_cursor.execute(create_table_query)
-        target_conn.commit()
-
-        insert_result_query = f"""
-            INSERT INTO {table_name} (task_id, status, result_data)
-            VALUES (%s, %s, %s);
-        """
-        target_cursor.execute(insert_result_query, (task.id, 'SUCCESS', json.dumps(result_data)))
-        target_conn.commit()
-        target_cursor.close()
-        target_conn.close()
+            insert_query = f'''
+                INSERT INTO "{table_name}" (task_id, result_data)
+                VALUES (%s, %s);
+            '''
+            cursor.execute(insert_query, [task.id, json.dumps(result_data)])
 
         ExecutionHistory.objects.create(
             task=task,
@@ -79,15 +65,13 @@ def execute_task(task_id):
             result_data=result_data
         )
 
-    except Task.DoesNotExist:
-        ExecutionHistory.objects.create(
-            task_id=task_id,
-            status='FAILURE',
-            error_message=f"Task with ID {task_id} does not exist."
-        )
     except Exception as e:
-        ExecutionHistory.objects.create(
-            task_id=task_id,
-            status='FAILURE',
-            error_message=str(e)
-        )
+        if self.request.retries < task.max_retries:
+            raise self.retry(exc=e, countdown=task.retry_delay)
+        else:
+            ExecutionHistory.objects.create(
+                task=task,
+                status='FAILURE',
+                error_message=str(e)
+            )
+            raise e

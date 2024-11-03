@@ -1,8 +1,21 @@
-from django.db import models, connections
-from django.core.exceptions import ValidationError
+from django.db import models
 from django_celery_beat.models import PeriodicTask, CrontabSchedule
 import json
-from datetime import datetime
+from django.core.exceptions import ValidationError
+
+class DatabaseConnection(models.Model):
+    """
+    Model to store external database connection details.
+    """
+    name = models.CharField(max_length=255, unique=True)
+    host = models.CharField(max_length=255)
+    port = models.PositiveIntegerField(default=5432)
+    database_name = models.CharField(max_length=255)
+    username = models.CharField(max_length=255)
+    password = models.CharField(max_length=128)
+
+    def __str__(self):
+        return self.name
 
 
 class Task(models.Model):
@@ -12,10 +25,12 @@ class Task(models.Model):
     name = models.CharField(max_length=255)
     query = models.TextField()
     schedule = models.CharField(max_length=100)  # Cron expression
+    retry_delay = models.PositiveIntegerField(default=60)
+    max_retries = models.PositiveIntegerField(default=3)
     is_active = models.BooleanField(default=True)
     last_run = models.DateTimeField(null=True, blank=True)
     database_connection = models.ForeignKey(
-        'DatabaseConnection', on_delete=models.CASCADE, related_name='tasks'
+        DatabaseConnection, on_delete=models.CASCADE, related_name='tasks'
     )
     periodic_task = models.ForeignKey(
         PeriodicTask,
@@ -25,7 +40,17 @@ class Task(models.Model):
         related_name='scheduled_tasks'
     )
 
+    def clean(self):
+        """
+        Validates the cron expression.
+        """
+        try:
+            self._parse_cron_expression(self.schedule)
+        except ValueError as e:
+            raise ValidationError({'schedule': str(e)})
+
     def save(self, *args, **kwargs):
+        self.full_clean()
         super(Task, self).save(*args, **kwargs)
         self.create_or_update_periodic_task()
 
@@ -35,10 +60,11 @@ class Task(models.Model):
         super(Task, self).delete(*args, **kwargs)
 
     def create_or_update_periodic_task(self):
-        schedule, created = CrontabSchedule.objects.get_or_create(
-            **self._parse_cron_expression(self.schedule)
-        )
-        task_name = f'Task {self.id}: {self.name}'
+        cron_fields = self._parse_cron_expression(self.schedule)
+        schedule = CrontabSchedule.objects.filter(**cron_fields).first()
+        if not schedule:
+            schedule = CrontabSchedule.objects.create(**cron_fields)
+        task_name = f"Task {self.id}: {self.name}"
         task_kwargs = {
             'crontab': schedule,
             'name': task_name,
@@ -88,9 +114,9 @@ class ExecutionHistory(models.Model):
     task = models.ForeignKey(
         Task, on_delete=models.CASCADE, related_name='executions'
     )
-    execution_time = models.DateTimeField(default=datetime.now)
+    execution_time = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
-    result = models.TextField(null=True, blank=True)
+    result_data = models.JSONField(null=True, blank=True)
     error_message = models.TextField(null=True, blank=True)
 
     def __str__(self):
@@ -98,41 +124,3 @@ class ExecutionHistory(models.Model):
             f'{self.task.name} - '
             f'{self.execution_time.strftime("%Y-%m-%d %H:%M:%S")}'
         )
-
-
-class DatabaseConnection(models.Model):
-    """
-    Model to store external database connection details.
-    """
-    name = models.CharField(max_length=255)
-    host = models.CharField(max_length=255)
-    port = models.PositiveIntegerField(default=5432)
-    database_name = models.CharField(max_length=255)
-    username = models.CharField(max_length=255)
-    password = models.CharField(max_length=128)
-
-    def __str__(self):
-        return self.name
-    
-
-class QueryResult(models.Model):
-    """
-    Model to store the results of task queries.
-    """
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='results')
-    execution_time = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=50)  # e.g., "SUCCESS", "FAILURE"
-    result_data = models.JSONField()  # Stores query results
-    error_message = models.TextField(blank=True, null=True)
-
-    def __str__(self):
-        return f'Result for Task {self.task.id} at {self.execution_time}'
-
-class QueryResultConfig(models.Model):
-    """
-    Model to store configuration for query result storage.
-    """
-    table_name = models.CharField(max_length=255, unique=True)
-
-    def __str__(self):
-        return self.table_name

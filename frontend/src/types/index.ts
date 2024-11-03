@@ -1,62 +1,52 @@
-export type DatabaseConnectionInput = {
+export interface DatabaseConnectionInput {
   name: string;
   host: string;
   port: number;
   database_name: string;
   username: string;
   password: string;
-};
+}
 
-export type DatabaseConnection = {
+export interface DatabaseConnection {
   id: number;
   name: string;
   host: string;
   port: number;
   database_name: string;
   username: string;
-};
+  password?: string;
+}
 
-export type TaskInput = {
-  name: string;
-  query: string;
-  schedule: string;
-  database_connection: DatabaseConnectionInput;
-};
+export interface TaskInput {
+  name?: string;
+  query?: string;
+  schedule?: string;
+  retry_delay?: number;
+  max_retries?: number;
+  is_active?: boolean;
+  database_connection?: DatabaseConnectionInput;
+}
 
-export type Task = {
+export interface Task {
   id: number;
   name: string;
   query: string;
   schedule: string;
+  retry_delay: number;
+  max_retries: number;
   is_active: boolean;
   last_run: string | null;
   database_connection: DatabaseConnection;
-};
+}
 
-export type QueryResult = {
+export interface ExecutionHistory {
   id: number;
-  task: number;
+  task: {
+    id: number;
+    name: string;
+  };
   execution_time: string;
   status: string;
-  result_data: any; // JSON data
-  error_message: string | null;
-};
-
-export type ExecutionHistoryEntry = {
-  id: number;
-  task_name: string;
-  execution_time: string;
-  status: string;
-  result: string;
-  error_message: string;
-};
-
-export type QueryResultConfig = {
-  id: number;
-  table_name: string;
-};
-
-export type CheckConnectionResponse = {
-  is_connection_successful: boolean;
-  error?: string;
-};
+  result_data?: any;
+  error_message?: string | null;
+}

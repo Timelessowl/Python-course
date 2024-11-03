@@ -30,6 +30,8 @@ const TaskAndConnectionForm: React.FC = () => {
   const [taskName, setTaskName] = useState<string>('');
   const [taskQuery, setTaskQuery] = useState<string>('');
   const [taskSchedule, setTaskSchedule] = useState<string>('');
+  const [retryDelay, setRetryDelay] = useState<number>(60); // Added
+  const [maxRetries, setMaxRetries] = useState<number>(3);   // Added
 
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
@@ -45,7 +47,6 @@ const TaskAndConnectionForm: React.FC = () => {
     setSuccess('');
     setIsLoading(true);
 
-    // проверка на пустые поля
     if (
       !dbName ||
       !dbHost ||
@@ -75,6 +76,8 @@ const TaskAndConnectionForm: React.FC = () => {
         name: taskName,
         query: taskQuery,
         schedule: taskSchedule,
+        retry_delay: retryDelay,
+        max_retries: maxRetries,
         database_connection: databaseConnection,
       };
 
@@ -89,9 +92,25 @@ const TaskAndConnectionForm: React.FC = () => {
       setTaskName('');
       setTaskQuery('');
       setTaskSchedule('');
+      setRetryDelay(60);
+      setMaxRetries(3);
       navigate('/tasks');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create task.');
+      let errorMessage = 'Failed to create task.';
+      const errorData = err.response?.data;
+      if (errorData) {
+        if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else if (typeof errorData === 'object') {
+          errorMessage = Object.values(errorData)
+            .flat()
+            .join(' ');
+        }
+      } else {
+        errorMessage = err.message || 'Failed to create task due to an unknown error.';
+      }
+
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -298,6 +317,30 @@ const TaskAndConnectionForm: React.FC = () => {
                     placeholder="e.g., */5 * * * *"
                     value={taskSchedule}
                     onChange={(e) => setTaskSchedule(e.target.value)}
+                    required
+                  />
+                </FormGroup>
+              </Col>
+              <Col xs={12} md={6}>
+                <FormGroup>
+                  <Label for="retryDelay">Retry Delay (seconds)</Label>
+                  <Input
+                    type="number"
+                    id="retryDelay"
+                    value={retryDelay}
+                    onChange={(e) => setRetryDelay(Number(e.target.value))}
+                    required
+                  />
+                </FormGroup>
+              </Col>
+              <Col xs={12} md={6}>
+                <FormGroup>
+                  <Label for="maxRetries">Max Retries</Label>
+                  <Input
+                    type="number"
+                    id="maxRetries"
+                    value={maxRetries}
+                    onChange={(e) => setMaxRetries(Number(e.target.value))}
                     required
                   />
                 </FormGroup>
