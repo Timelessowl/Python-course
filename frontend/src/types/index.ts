@@ -14,7 +14,6 @@ export interface DatabaseConnection {
   port: number;
   database_name: string;
   username: string;
-  password?: string;
 }
 
 export interface TaskInput {
@@ -24,7 +23,8 @@ export interface TaskInput {
   retry_delay?: number;
   max_retries?: number;
   is_active?: boolean;
-  database_connection?: DatabaseConnectionInput;
+  database_connection?: number;
+  database_connection_data?: DatabaseConnectionInput;
 }
 
 export interface Task {

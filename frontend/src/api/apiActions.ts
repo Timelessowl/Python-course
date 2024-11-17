@@ -4,6 +4,7 @@ import {
   TaskInput,
   DatabaseConnectionInput,
   ExecutionHistory,
+  DatabaseConnection,
 } from '../types';
 
 export const createTask = async (taskDetails: TaskInput): Promise<Task> => {
@@ -45,5 +46,10 @@ export const checkDatabaseConnection = async (
     'check-connection/',
     connectionDetails
   );
+  return response.data;
+};
+
+export const fetchAllDatabaseConnections = async (): Promise<DatabaseConnection[]> => {
+  const response = await api.get<DatabaseConnection[]>('database-connections/');
   return response.data;
 };

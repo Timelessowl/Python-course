@@ -1,3 +1,5 @@
+// TaskList.tsx
+
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
@@ -53,9 +55,14 @@ const TaskList: React.FC<TaskListProps> = ({ onSelectTask, selectedTaskId }) => 
   const handleEditToggle = (task: Task) => {
     setEditableTasks((prev) => {
       if (prev[task.id]) {
+        // Exiting edit mode, save changes
         saveTaskEdits(task.id);
         return {};
       } else {
+        // Entering edit mode, expand detail area
+        setActiveTaskId(task.id);
+        onSelectTask(task);
+
         return {
           [task.id]: {
             name: task.name,
@@ -68,6 +75,16 @@ const TaskList: React.FC<TaskListProps> = ({ onSelectTask, selectedTaskId }) => 
         };
       }
     });
+  };
+
+  const handleCancelEdit = (taskId: number) => {
+    // Exiting edit mode without saving changes
+    setEditableTasks((prev) => {
+      const updated = { ...prev };
+      delete updated[taskId];
+      return updated;
+    });
+    setSuccess('Edit cancelled.');
   };
 
   const handleFieldChange = (taskId: number, field: keyof TaskInput, value: any) => {
@@ -142,17 +159,31 @@ const TaskList: React.FC<TaskListProps> = ({ onSelectTask, selectedTaskId }) => 
                   <strong>
                     ID: {task.id} - {task.name}
                   </strong>
-                  <Button
-                    color="danger"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteTask(task.id);
-                    }}
-                    style={{ float: 'right', marginRight: '5px' }}
-                  >
-                    Delete
-                  </Button>
+                  {isEditing ? (
+                    <Button
+                      color="warning"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCancelEdit(task.id);
+                      }}
+                      style={{ float: 'right', marginRight: '5px' }}
+                    >
+                      Cancel
+                    </Button>
+                  ) : (
+                    <Button
+                      color="danger"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteTask(task.id);
+                      }}
+                      style={{ float: 'right', marginRight: '5px' }}
+                    >
+                      Delete
+                    </Button>
+                  )}
                   <Button
                     color="secondary"
                     size="sm"
@@ -260,12 +291,24 @@ const TaskList: React.FC<TaskListProps> = ({ onSelectTask, selectedTaskId }) => 
                     <FormGroup>
                       <strong>Database Connection:</strong>
                       <div style={{ marginLeft: '15px' }}>
-                        <p><strong>ID:</strong> {task.database_connection.id}</p>
-                        <p><strong>Name:</strong> {task.database_connection.name}</p>
-                        <p><strong>Host:</strong> {task.database_connection.host}</p>
-                        <p><strong>Port:</strong> {task.database_connection.port}</p>
-                        <p><strong>Database Name:</strong> {task.database_connection.database_name}</p>
-                        <p><strong>Username:</strong> {task.database_connection.username}</p>
+                        <p>
+                          <strong>ID:</strong> {task.database_connection.id}
+                        </p>
+                        <p>
+                          <strong>Name:</strong> {task.database_connection.name}
+                        </p>
+                        <p>
+                          <strong>Host:</strong> {task.database_connection.host}
+                        </p>
+                        <p>
+                          <strong>Port:</strong> {task.database_connection.port}
+                        </p>
+                        <p>
+                          <strong>Database Name:</strong> {task.database_connection.database_name}
+                        </p>
+                        <p>
+                          <strong>Username:</strong> {task.database_connection.username}
+                        </p>
                       </div>
                     </FormGroup>
                   </CardBody>

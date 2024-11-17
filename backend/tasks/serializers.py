@@ -5,7 +5,7 @@ from .models import DatabaseConnection, Task, ExecutionHistory
 class DatabaseConnectionSerializer(serializers.ModelSerializer):
     class Meta:
         model = DatabaseConnection
-        fields = '__all__'
+        fields = "__all__"
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -13,24 +13,35 @@ class TaskSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Task
-        fields = '__all__'
-        read_only_fields = ['id', 'last_run', 'periodic_task']
+        fields = "__all__"
+        read_only_fields = ["id", "last_run", "periodic_task"]
 
     def create(self, validated_data):
-        database_connection_data = validated_data.pop('database_connection')
-        database_connection, _ = DatabaseConnection.objects.get_or_create(
-            name=database_connection_data['name'],
-            defaults=database_connection_data
+        database_connection = validated_data.pop("database_connection", None)
+        database_connection_data = validated_data.pop("database_connection_data", None)
+
+        if database_connection_data:
+            db_conn_serializer = DatabaseConnectionSerializer(
+                data=database_connection_data
+            )
+            db_conn_serializer.is_valid(raise_exception=True)
+            database_connection = db_conn_serializer.save()
+
+        if not database_connection:
+            raise serializers.ValidationError(
+                {"database_connection": "This field is required."}
+            )
+
+        task = Task.objects.create(
+            database_connection=database_connection, **validated_data
         )
-        task = Task.objects.create(database_connection=database_connection, **validated_data)
         return task
 
     def update(self, instance, validated_data):
-        database_connection_data = validated_data.pop('database_connection', None)
+        database_connection_data = validated_data.pop("database_connection", None)
         if database_connection_data:
             database_connection, _ = DatabaseConnection.objects.get_or_create(
-                name=database_connection_data['name'],
-                defaults=database_connection_data
+                name=database_connection_data["name"], defaults=database_connection_data
             )
             instance.database_connection = database_connection
 
@@ -45,4 +56,4 @@ class ExecutionHistorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ExecutionHistory
-        fields = '__all__'
+        fields = "__all__"

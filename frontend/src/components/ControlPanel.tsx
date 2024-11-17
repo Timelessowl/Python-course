@@ -38,7 +38,7 @@ const ControlPanel: React.FC = () => {
 
   return (
     <Container className="my-4">
-      <h4>Control Panel</h4>
+      <h4>Доступные запросы</h4>
       {error && (
         <Alert color="danger" toggle={() => setError('')} className="mb-3">
           {error}
@@ -66,7 +66,7 @@ const ControlPanel: React.FC = () => {
               backgroundColor: '#f8f9fa',
             }}
           >
-            <h5>Run Selected Task</h5>
+            <h5>Выполнить выбранный запрос</h5>
             <Button
               color="primary"
               onClick={handleRunSelectedTask}
@@ -75,10 +75,10 @@ const ControlPanel: React.FC = () => {
             >
               {isRunning ? (
                 <>
-                  <Spinner size="sm" /> Running...
+                  <Spinner size="sm" /> Выполняется...
                 </>
               ) : (
-                'Run Task'
+                'Выполнить'
               )}
             </Button>
           </div>

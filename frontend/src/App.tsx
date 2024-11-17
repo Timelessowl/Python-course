@@ -5,7 +5,7 @@ import ControlPanel from './components/ControlPanel';
 import History from './components/History';
 import 'bootstrap/dist/css/bootstrap.min.css';
 const App: React.FC = () => {
-  const [selectedOption, setSelectedOption] = useState<string>('Add New');
+  const [selectedOption, setSelectedOption] = useState<string>('Панель управления');
 
   const handleOptionSelect = (option: string) => {
     setSelectedOption(option);
@@ -13,11 +13,11 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     switch (selectedOption) {
-      case 'Control Panel':
+      case 'Панель управления':
         return <ControlPanel />;
-      case 'Add New':
+      case 'Создание нового запроса':
         return <TaskAndConnectionForm />;
-      case 'History':
+      case 'История запросов':
         return <History />;
       default:
         return <TaskAndConnectionForm />;

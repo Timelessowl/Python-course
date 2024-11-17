@@ -5,6 +5,7 @@ from .models import Task, ExecutionHistory
 import psycopg2
 import json
 
+
 @shared_task(bind=True, max_retries=None)
 def execute_task(self, task_id):
     """
@@ -15,7 +16,7 @@ def execute_task(self, task_id):
     """
     try:
         # Fetch the Task instance
-        task = Task.objects.select_related('database_connection').get(id=task_id)
+        task = Task.objects.select_related("database_connection").get(id=task_id)
 
         # Connect to the source database
         db_conn = task.database_connection
@@ -24,7 +25,7 @@ def execute_task(self, task_id):
             user=db_conn.username,
             password=db_conn.password,
             host=db_conn.host,
-            port=db_conn.port
+            port=db_conn.port,
         )
         source_cursor = source_conn.cursor()
         source_cursor.execute(task.query)
@@ -33,36 +34,31 @@ def execute_task(self, task_id):
         source_cursor.close()
         source_conn.close()
 
-        result_data = {
-            'columns': columns,
-            'rows': results
-        }
+        result_data = {"columns": columns, "rows": results}
 
         # Таблица для хранения результатов
         table_name = settings.RESULT_TABLE_NAME
 
         with connection.cursor() as cursor:
             # Create table if it doesn't exist
-            create_table_query = f'''
+            create_table_query = f"""
                 CREATE TABLE IF NOT EXISTS "{table_name}" (
                     id SERIAL PRIMARY KEY,
                     task_id INTEGER REFERENCES tasks_task(id),
                     execution_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     result_data JSONB
                 );
-            '''
+            """
             cursor.execute(create_table_query)
 
-            insert_query = f'''
+            insert_query = f"""
                 INSERT INTO "{table_name}" (task_id, result_data)
                 VALUES (%s, %s);
-            '''
+            """
             cursor.execute(insert_query, [task.id, json.dumps(result_data)])
 
         ExecutionHistory.objects.create(
-            task=task,
-            status='SUCCESS',
-            result_data=result_data
+            task=task, status="SUCCESS", result_data=result_data
         )
 
     except Exception as e:
@@ -70,8 +66,6 @@ def execute_task(self, task_id):
             raise self.retry(exc=e, countdown=task.retry_delay)
         else:
             ExecutionHistory.objects.create(
-                task=task,
-                status='FAILURE',
-                error_message=str(e)
+                task=task, status="FAILURE", error_message=str(e)
             )
             raise e

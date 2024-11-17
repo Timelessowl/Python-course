@@ -6,7 +6,7 @@ type SelectorProps = {
 };
 
 const Selector: React.FC<SelectorProps> = ({ selectedOption, onOptionSelect }) => {
-  const options = ['Control Panel', 'Add New', 'History'];
+  const options = ['Панель управления', 'Создание нового запроса', 'История запросов'];
 
   return (
     <div
@@ -15,7 +15,7 @@ const Selector: React.FC<SelectorProps> = ({ selectedOption, onOptionSelect }) =
         backgroundColor: '#fff',
         borderRadius: '15px',
         padding: '15px',
-        width: '200px',
+        width: '300px',
         margin: '20px',
         position: 'sticky',
         top: '20px',
