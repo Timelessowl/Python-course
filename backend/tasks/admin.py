@@ -10,7 +10,13 @@ class DatabaseConnectionAdmin(admin.ModelAdmin):
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ("name", "is_active", "schedule", "last_run", "database_connection")
+    list_display = (
+        "name",
+        "is_active",
+        "schedule",
+        "last_run",
+        "database_connection",
+    )
     list_filter = ("is_active", "database_connection")
     search_fields = ("name",)
 
@@ -20,4 +26,3 @@ class ExecutionHistoryAdmin(admin.ModelAdmin):
     list_display = ("task", "execution_time", "status")
     list_filter = ("status", "execution_time")
     search_fields = ("task__name",)
-    exclude = ("password",)

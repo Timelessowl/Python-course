@@ -1,3 +1,4 @@
+import psycopg2
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -9,7 +10,6 @@ from .serializers import (
     ExecutionHistorySerializer,
 )
 from .tasks import execute_task
-import psycopg2
 
 
 class CreateTask(APIView):
@@ -19,7 +19,9 @@ class CreateTask(APIView):
             task = serializer.save()
             return Response({"id": task.id}, status=status.HTTP_201_CREATED)
         else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                serializer.errors, status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class TaskList(APIView):
@@ -37,22 +39,30 @@ class TaskDetail(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                serializer.errors, status=status.HTTP_400_BAD_REQUEST
+            )
 
     def delete(self, request, task_id):
         task = get_object_or_404(Task, id=task_id)
         task.delete()
         return Response(
-            {"message": "Task deleted successfully."}, status=status.HTTP_204_NO_CONTENT
+            {"message": "Запрос удален."}, status=status.HTTP_204_NO_CONTENT
         )
 
 
 class RunTask(APIView):
     def post(self, request, task_id):
         task = get_object_or_404(Task, id=task_id)
-        execute_task.delay(task.id)
+        celery_result = execute_task.delay(task.id)
+        ExecutionHistory.objects.create(
+            task=task,
+            status="PENDING",
+            celery_task_id=celery_result.id,
+            retry_count=0,
+        )
         return Response(
-            {"message": f'Task "{task.name}" has been triggered successfully.'},
+            {"message": f'Запрос "{task.name}" успешно запущен.'},
             status=status.HTTP_200_OK,
         )
 
@@ -67,12 +77,18 @@ class ExecutionHistoryList(APIView):
 class CheckDatabaseConnection(APIView):
     def post(self, request):
         data = request.data
-        required_fields = ["database_name", "username", "password", "host", "port"]
+        required_fields = [
+            "database_name",
+            "username",
+            "password",
+            "host",
+            "port",
+        ]
         if not all(field in data for field in required_fields):
             return Response(
                 {
                     "is_connection_successful": False,
-                    "error": "Missing connection parameters.",
+                    "error": "Недостаточно данных для подклбчения.",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -87,7 +103,7 @@ class CheckDatabaseConnection(APIView):
             return Response(
                 {"is_connection_successful": True}, status=status.HTTP_200_OK
             )
-        except Exception as e:
+        except psycopg2.Error as e:
             return Response(
                 {"is_connection_successful": False, "error": str(e)},
                 status=status.HTTP_200_OK,

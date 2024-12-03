@@ -14,9 +14,13 @@ urlpatterns = [
     path("tasks/create/", CreateTask.as_view(), name="task-create"),
     path("tasks/<int:task_id>/", TaskDetail.as_view(), name="task-detail"),
     path("tasks/<int:task_id>/run/", RunTask.as_view(), name="task-run"),
-    path("executions/", ExecutionHistoryList.as_view(), name="execution-history"),
     path(
-        "check-connection/", CheckDatabaseConnection.as_view(), name="check-connection"
+        "executions/", ExecutionHistoryList.as_view(), name="execution-history"
+    ),
+    path(
+        "check-connection/",
+        CheckDatabaseConnection.as_view(),
+        name="check-connection",
     ),
     path(
         "database-connections/",

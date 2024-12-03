@@ -1,6 +1,6 @@
+import json
 from django.db import models
 from django_celery_beat.models import PeriodicTask, CrontabSchedule
-import json
 from django.core.exceptions import ValidationError
 
 
@@ -54,13 +54,13 @@ class Task(models.Model):
 
     def save(self, *args, **kwargs):
         self.full_clean()
-        super(Task, self).save(*args, **kwargs)
+        super().save(*args, **kwargs)
         self.create_or_update_periodic_task()
 
     def delete(self, *args, **kwargs):
         if self.periodic_task:
             self.periodic_task.delete()
-        super(Task, self).delete(*args, **kwargs)
+        super().delete(*args, **kwargs)
 
     def create_or_update_periodic_task(self):
         cron_fields = self._parse_cron_expression(self.schedule)
@@ -76,19 +76,16 @@ class Task(models.Model):
             "enabled": self.is_active,
         }
         if self.periodic_task:
-            # Update existing PeriodicTask
             for key, value in task_kwargs.items():
                 setattr(self.periodic_task, key, value)
             self.periodic_task.save()
         else:
-            # Create new PeriodicTask
             self.periodic_task = PeriodicTask.objects.create(**task_kwargs)
-            super(Task, self).save(update_fields=["periodic_task"])
+            super().save(update_fields=["periodic_task"])
 
     def _parse_cron_expression(self, cron_expression):
         """
-        Parses a cron expression and returns a dictionary
-        suitable for CrontabSchedule.
+        Parses a cron into CrontabSchedule.
         """
         fields = cron_expression.strip().split()
         if len(fields) != 5:
@@ -113,13 +110,18 @@ class ExecutionHistory(models.Model):
     STATUS_CHOICES = [
         ("PENDING", "Pending"),
         ("SUCCESS", "Success"),
+        ("RETRY", "Retry"),
         ("FAILURE", "Failure"),
     ]
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="executions")
+    task = models.ForeignKey(
+        Task, on_delete=models.CASCADE, related_name="executions"
+    )
     execution_time = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     result_data = models.JSONField(null=True, blank=True)
     error_message = models.TextField(null=True, blank=True)
+    retry_count = models.PositiveIntegerField(default=0)
+    celery_task_id = models.CharField(max_length=255, unique=True)
 
     def __str__(self):
         return (

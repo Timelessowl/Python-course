@@ -1,5 +1,3 @@
-// TaskAndConnectionForm.tsx
-
 import React, { useState, useEffect } from 'react';
 import {
   Container,
@@ -8,11 +6,11 @@ import {
   Label,
   Input,
   Button,
-  Alert,
   Row,
   Col,
 } from 'reactstrap';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import {
   DatabaseConnectionInput,
   DatabaseConnection,
@@ -45,26 +43,19 @@ const TaskAndConnectionForm: React.FC = () => {
   const [existingConnections, setExistingConnections] = useState<DatabaseConnection[]>([]);
   const [selectedConnectionId, setSelectedConnectionId] = useState<number | null>(null);
 
-  const [error, setError] = useState<string>('');
-  const [success, setSuccess] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  const [connectionError, setConnectionError] = useState<string>('');
-  const [connectionSuccess, setConnectionSuccess] = useState<string>('');
   const [isChecking, setIsChecking] = useState<boolean>(false);
 
   useEffect(() => {
     if (useExistingConnection) {
       fetchAllDatabaseConnections()
         .then((connections) => setExistingConnections(connections))
-        .catch((err) => setError('Failed to load existing connections.'));
+        .catch((err) => toast.error('Не удалось загрузить подключения'));
     }
   }, [useExistingConnection]);
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
     setIsLoading(true);
 
     // Validation
@@ -76,7 +67,7 @@ const TaskAndConnectionForm: React.FC = () => {
         (!dbName || !dbHost || !dbDatabaseName || !dbUsername || !dbPassword)) ||
       (useExistingConnection && !selectedConnectionId)
     ) {
-      setError('Please fill in all required fields.');
+      toast.error('Обязательные поля не заполнены');
       setIsLoading(false);
       return;
     }
@@ -102,7 +93,7 @@ const TaskAndConnectionForm: React.FC = () => {
       };
 
       const response: Task = await createTask(taskDetails);
-      setSuccess('Task created successfully.');
+      toast.success("Новый запрос создан");
       setDbName('');
       setDbHost('');
       setDbPort(5432);
@@ -118,7 +109,7 @@ const TaskAndConnectionForm: React.FC = () => {
       setSelectedConnectionId(null);
       navigate('/tasks');
     } catch (err: any) {
-      let errorMessage = 'Failed to create task.';
+      let errorMessage = 'Не удалось создать запрос.';
       const errorData = err.response?.data;
       if (errorData) {
         if (typeof errorData === 'string') {
@@ -129,18 +120,16 @@ const TaskAndConnectionForm: React.FC = () => {
             .join(' ');
         }
       } else {
-        errorMessage = err.message || 'Failed to create task due to an unknown error.';
+        errorMessage = err.message || 'Неизвестная ошибка';
       }
 
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleCheckConnection = async () => {
-    setConnectionError('');
-    setConnectionSuccess('');
     setIsChecking(true);
 
     if (
@@ -150,7 +139,7 @@ const TaskAndConnectionForm: React.FC = () => {
       !dbUsername ||
       !dbPassword
     ) {
-      setConnectionError('Please fill in all database connection fields.');
+      toast.warning('Заполните все требуемые поля подключения');
       setIsChecking(false);
       return;
     }
@@ -167,12 +156,12 @@ const TaskAndConnectionForm: React.FC = () => {
 
       const response = await checkDatabaseConnection(databaseConnection);
       if (response.is_connection_successful) {
-        setConnectionSuccess('Connection successful!');
+        toast.success('Подключение успешно!');
       } else {
-        setConnectionError(response.error || 'Connection failed.');
+        toast.error(response.error || 'Не удалось подключится.');
       }
     } catch (err: any) {
-      setConnectionError(err.response?.data?.error || 'Connection failed.');
+      toast.error(err.response?.data?.error || 'Не удалось подключится.');
     } finally {
       setIsChecking(false);
     }
@@ -181,18 +170,6 @@ const TaskAndConnectionForm: React.FC = () => {
   return (
     <Container>
       <h4 className="my-4">Создать новый запрос</h4>
-
-      {error && (
-        <Alert color="danger" toggle={() => setError('')} className="mb-3">
-          {error}
-        </Alert>
-      )}
-      {success && (
-        <Alert color="success" toggle={() => setSuccess('')} className="mb-3">
-          {success}
-        </Alert>
-      )}
-
       <Form onSubmit={handleCreateTask}>
         <Row form>
           <Col xs={12}>
@@ -303,26 +280,6 @@ const TaskAndConnectionForm: React.FC = () => {
                     </FormGroup>
                   </Col>
                 </Row>
-
-                {connectionError && (
-                  <Alert
-                    color="danger"
-                    toggle={() => setConnectionError('')}
-                    className="mt-3"
-                  >
-                    {connectionError}
-                  </Alert>
-                )}
-                {connectionSuccess && (
-                  <Alert
-                    color="success"
-                    toggle={() => setConnectionSuccess('')}
-                    className="mt-3"
-                  >
-                    {connectionSuccess}
-                  </Alert>
-                )}
-
                 <Button
                   type="button"
                   color="secondary"

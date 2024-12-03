@@ -49,4 +49,5 @@ export interface ExecutionHistory {
   status: string;
   result_data?: any;
   error_message?: string | null;
+  retry_count: number;
 }

@@ -1,8 +1,5 @@
-// TaskList.tsx
-
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   Spinner,
   Card,
   CardHeader,
@@ -13,6 +10,7 @@ import {
   Input,
   Label,
 } from 'reactstrap';
+import { toast } from  'react-toastify'
 import { Task, TaskInput } from '../types';
 import { fetchAllTasks, editTask, deleteTask } from '../api/apiActions';
 
@@ -23,8 +21,6 @@ interface TaskListProps {
 
 const TaskList: React.FC<TaskListProps> = ({ onSelectTask, selectedTaskId }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [error, setError] = useState<string>('');
-  const [success, setSuccess] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
   const [editableTasks, setEditableTasks] = useState<{ [key: number]: Partial<TaskInput> }>({});
@@ -36,7 +32,7 @@ const TaskList: React.FC<TaskListProps> = ({ onSelectTask, selectedTaskId }) => 
         const tasksData = await fetchAllTasks();
         setTasks(tasksData);
       } catch (err: any) {
-        setError('Failed to load tasks.');
+        toast.error('Не удалось загрузить запросы.');
       } finally {
         setIsLoading(false);
       }
@@ -55,11 +51,9 @@ const TaskList: React.FC<TaskListProps> = ({ onSelectTask, selectedTaskId }) => 
   const handleEditToggle = (task: Task) => {
     setEditableTasks((prev) => {
       if (prev[task.id]) {
-        // Exiting edit mode, save changes
         saveTaskEdits(task.id);
         return {};
       } else {
-        // Entering edit mode, expand detail area
         setActiveTaskId(task.id);
         onSelectTask(task);
 
@@ -78,13 +72,12 @@ const TaskList: React.FC<TaskListProps> = ({ onSelectTask, selectedTaskId }) => 
   };
 
   const handleCancelEdit = (taskId: number) => {
-    // Exiting edit mode without saving changes
     setEditableTasks((prev) => {
       const updated = { ...prev };
       delete updated[taskId];
       return updated;
     });
-    setSuccess('Edit cancelled.');
+    toast.warning("Редактирование запроса отменено");
   };
 
   const handleFieldChange = (taskId: number, field: keyof TaskInput, value: any) => {
@@ -106,36 +99,26 @@ const TaskList: React.FC<TaskListProps> = ({ onSelectTask, selectedTaskId }) => 
         prevTasks.map((task) => (task.id === taskId ? updatedTask : task))
       );
       setEditableTasks({});
-      setSuccess('Task updated successfully.');
+      toast.success('Запрос успешно обновлен')
     } catch (err: any) {
-      setError('Failed to save task changes.');
+      toast.error('Не удалось обновить запрос');
     }
   };
 
   const handleDeleteTask = async (taskId: number) => {
-    const confirmDelete = window.confirm('Are you sure you want to delete this task?');
+    const confirmDelete = window.confirm('Удалить выбранное задание?');
     if (!confirmDelete) return;
     try {
       await deleteTask(taskId);
       setTasks((prevTasks) => prevTasks.filter((task) => task.id !== taskId));
-      setSuccess('Task deleted successfully.');
+      toast.success('Запрос успешно удален.');
     } catch (err: any) {
-      setError('Failed to delete task.');
+      toast.error('Не удалось удалить запрос.');
     }
   };
 
   return (
     <div>
-      {error && (
-        <Alert color="danger" toggle={() => setError('')} className="mb-3">
-          {error}
-        </Alert>
-      )}
-      {success && (
-        <Alert color="success" toggle={() => setSuccess('')} className="mb-3">
-          {success}
-        </Alert>
-      )}
       {isLoading ? (
         <div className="text-center">
           <Spinner color="primary" />

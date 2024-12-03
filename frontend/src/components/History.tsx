@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Table, Alert } from 'reactstrap';
+import { toast } from 'react-toastify';
+import { Container, Table } from 'reactstrap';
 import { ExecutionHistory } from '../types';
 import { fetchExecutionHistory } from '../api/apiActions';
 
 const History: React.FC = () => {
   const [histories, setHistories] = useState<ExecutionHistory[]>([]);
-  const [error, setError] = useState<string>('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -13,7 +13,7 @@ const History: React.FC = () => {
         const data = await fetchExecutionHistory();
         setHistories(data);
       } catch (err) {
-        setError('Failed to fetch execution history.');
+        toast.error('Не удалось загрузить историю.');
       }
     };
     fetchData();
@@ -22,11 +22,6 @@ const History: React.FC = () => {
   return (
     <Container className="my-4">
       <h4>Execution History</h4>
-      {error && (
-        <Alert color="danger" toggle={() => setError('')} className="mb-3">
-          {error}
-        </Alert>
-      )}
       <Table striped responsive>
         <thead>
           <tr>
@@ -43,11 +38,13 @@ const History: React.FC = () => {
               <td>{new Date(history.execution_time).toLocaleString()}</td>
               <td>{history.status}</td>
               <td>
-                {history.status === 'SUCCESS' ? (
-                  <pre>{JSON.stringify(history.result_data, null, 2)}</pre>
-                ) : (
-                  history.error_message
-                )}
+              {history.status === 'SUCCESS' ? (
+                <pre>{JSON.stringify(history.result_data, null, 2)}</pre>
+              ) : history.status === 'FAILURE' ? (
+                history.error_message
+              ) : (
+                'Pending...'
+              )}
               </td>
             </tr>
           ))}
